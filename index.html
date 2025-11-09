@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GaiaCraft 永續夥伴平台</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Chart.js (用於圖表) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 引入 Feather Icons (用於圖標) -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        /* 自定義字體與滾動條樣式 */
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6; /* 淺灰色背景 */
+        }
+        /* 側邊欄活動狀態 */
+        .sidebar-link.active {
+            background-color: #1d4ed8; /* 深藍色 */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .sidebar-link.active i {
+            color: white !important;
+        }
+        /* AI 聊天視窗的動畫 */
+        #ai-chat-window {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+
+        /* 台灣地圖 SVG 樣式 */
+        .taiwan-map {
+            width: 100%;
+            height: 100%;
+            max-height: 380px; /* 限制最大高度 */
+            object-fit: contain;
+        }
+        .taiwan-map-path {
+            fill: #c7d2fe; /* 淺藍色 */
+            stroke: #6366f1; /* 藍色 */
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        /* 熱點動畫 */
+        .hotspot {
+            fill: #ef4444; /* 紅色 */
+            stroke: white;
+            stroke-width: 1;
+            animation: pulse 2s infinite ease-in-out;
+            transform-origin: center center;
+            cursor: pointer;
+        }
+        .hotspot-taipei { animation-delay: 0s; }
+        .hotspot-taichung { animation-delay: 0.5s; }
+        .hotspot-kaohsiung { animation-delay: 1s; }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(0.9);
+                opacity: 0.7;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(0.9);
+                opacity: 0.7;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <!-- 側邊欄 -->
+    <aside class="fixed inset-y-0 left-0 z-30 w-64 bg-gray-900 text-white flex flex-col shadow-lg transition-transform duration-300 ease-in-out -translate-x-full lg:translate-x-0" id="sidebar">
+        <div class="flex items-center justify-center h-20 border-b border-gray-700">
+            <i data-feather="globe" class="w-8 h-8 mr-2 text-green-400"></i>
+            <span class="text-2xl font-bold">GaiaCraft</span>
+        </div>
+        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            <a href="#" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors duration-200 active" onclick="showPage('dashboard', this)">
+                <i data-feather="home" class="w-5 h-5 mr-3 text-gray-400"></i>
+                登入首頁
+            </a>
+            <a href="#" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors duration-200" onclick="showPage('mission', this)">
+                <i data-feather="target" class="w-5 h-5 mr-3 text-gray-400"></i>
+                任務管理
+            </a>
+            <a href="#" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors duration-200" onclick="showPage('analysis', this)">
+                <i data-feather="users" class="w-5 h-5 mr-3 text-gray-400"></i>
+                玩家分析
+            </a>
+            <a href="#" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors duration-200" onclick="showPage('brand', this)">
+                <i data-feather="gift" class="w-5 h-5 mr-3 text-gray-400"></i>
+                品牌活動
+            </a>
+            <a href="#" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors duration-200" onclick="showPage('report', this)">
+                <i data-feather="file-text" class="w-5 h-5 mr-3 text-gray-400"></i>
+                ESG 報表
+            </a>
+            <a href="#" class="sidebar-link flex items-center px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors duration-200" onclick="showPage('settings', this)">
+                <i data-feather="settings" class="w-5 h-5 mr-3 text-gray-400"></i>
+                系統設定
+            </a>
+        </nav>
+    </aside>
+
+    <!-- 手機版漢堡選單按鈕 -->
+    <button id="menu-toggle" class="lg:hidden fixed top-4 left-4 z-40 p-2 bg-gray-800 text-white rounded-md shadow-lg">
+        <i data-feather="menu" class="w-6 h-6"></i>
+    </button>
+    
+    <!-- 遮罩層 -->
+    <div id="overlay" class="lg:hidden fixed inset-0 bg-black opacity-50 z-20 hidden"></div>
+
+    <!-- 主內容區 -->
+    <main class="lg:ml-64 p-6 md:p-10 transition-all duration-300 ease-in-out">
+
+        <!-- =======================
+             1. 登入首頁 (Dashboard)
+             ======================= -->
+        <div id="page-dashboard" class="page-content">
+            <!-- 頂部標題與按鈕 -->
+            <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-4 md:mb-0">歡迎回來，David！</h1>
+                <button class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-200 flex items-center justify-center">
+                    <i data-feather="plus" class="w-5 h-5 mr-2"></i>
+                    建立新任務
+                </button>
+            </div>
+
+            <!-- 快速摘要卡片 -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border-l-4 border-blue-500">
+                    <div class="flex justify-between items-start">
+                        <span class="text-gray-500 font-medium">本月參與玩家人數</span>
+                        <i data-feather="users" class="w-6 h-6 text-blue-500"></i>
+                    </div>
+                    <p class="text-4xl font-bold text-gray-800 mt-2">18,390</p>
+                    <span class="text-sm text-green-500 flex items-center mt-2">
+                        <i data-feather="arrow-up" class="w-4 h-4 mr-1"></i> +12.5%
+                    </span>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border-l-4 border-green-500">
+                    <div class="flex justify-between items-start">
+                        <span class="text-gray-500 font-medium">累積碳減量 (kgCO₂e)</span>
+                        <i data-feather="bar-chart-2" class="w-6 h-6 text-green-500"></i>
+                    </div>
+                    <p class="text-4xl font-bold text-gray-800 mt-2">4,210</p>
+                    <span class="text-sm text-gray-500 flex items-center mt-2">
+                        目標 10,000 kg
+                    </span>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border-l-4 border-yellow-500">
+                    <div class="flex justify-between items-start">
+                        <span class="text-gray-500 font-medium">任務完成率</span>
+                        <i data-feather="check-circle" class="w-6 h-6 text-yellow-500"></i>
+                    </div>
+                    <p class="text-4xl font-bold text-gray-800 mt-2">78.2%</p>
+                    <span class="text-sm text-red-500 flex items-center mt-2">
+                        <i data-feather="arrow-down" class="w-4 h-4 mr-1"></i> -2.1%
+                    </span>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border-l-4 border-purple-500">
+                    <div class="flex justify-between items-start">
+                        <span class="text-gray-500 font-medium">品牌曝光次數</span>
+                        <i data-feather="eye" class="w-6 h-6 text-purple-500"></i>
+                    </div>
+                    <p class="text-4xl font-bold text-gray-800 mt-2">1,203,400</p>
+                    <span class="text-sm text-green-500 flex items-center mt-2">
+                        <i data-feather="arrow-up" class="w-4 h-4 mr-1"></i> +8.0%
+                    </span>
+                </div>
+            </div>
+
+            <!-- 遊戲戰情板 -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 左側折線圖 -->
+                <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">每日任務完成數</h3>
+                    <!-- BUG FIX: Add relative container with defined height for responsiveness -->
+                    <div class="relative h-64 md:h-80">
+                        <canvas id="dailyTasksChart"></canvas>
+                    </div>
+                </div>
+                <!-- 右側圓餅圖 -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">任務類型分布</h3>
+                    <!-- BUG FIX: Add relative container with defined height for responsiveness -->
+                    <div class="relative h-64 md:h-80">
+                        <canvas id="taskTypeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 動態事件串 -->
+            <div class="mt-8 bg-white p-6 rounded-xl shadow-lg">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">動態事件串</h3>
+                <div class="space-y-4 max-h-64 overflow-y-auto">
+                    <div class="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
+                        <i data-feather="coffee" class="w-5 h-5 text-green-600"></i>
+                        <p class="text-gray-700"><span class="font-semibold">政大學生</span> 完成了 1,200 次自帶杯任務。</p>
+                        <span class="text-sm text-gray-400 ml-auto">2 分鐘前</span>
+                    </div>
+                    <div class="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg">
+                        <i data-feather="zap" class="w-5 h-5 text-blue-600"></i>
+                        <p class="text-gray-700"><span class="font-semibold">星巴克 ESG 任務</span> 已兌換 80% 的獎勵。</p>
+                        <span class="text-sm text-gray-400 ml-auto">1 小時前</span>
+                    </div>
+                    <div class="flex items-center space-x-3 p-3 bg-yellow-50 rounded-lg">
+                        <i data-feather="trash-2" class="w-5 h-5 text-yellow-600"></i>
+                        <p class="text-gray-700">新的 <span class="font-semibold">「校園回收挑戰」</span> 任務已上線。</p>
+                        <span class="text-sm text-gray-400 ml-auto">3 小時前</span>
+                    </div>
+                    <div class="flex items-center space-x-3 p-3 bg-purple-50 rounded-lg">
+                        <i data-feather="train" class="w-5 h-5 text-purple-600"></i>
+                        <p class="text-gray-700">「綠色通勤」任務本週累積減碳 150 kgCO₂e。</p>
+                        <span class="text-sm text-gray-400 ml-auto">1 天前</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =======================
+             2. 任務管理頁
+             ======================= -->
+        <div id="page-mission" class="page-content hidden">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">任務管理</h1>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 左欄：任務列表 -->
+                <div class="lg:col-span-1 bg-white rounded-xl shadow-lg p-6">
+                    <div class="relative mb-4">
+                        <input type="text" placeholder="搜尋任務..." class="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <i data-feather="search" class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                    </div>
+                    <div class="flex space-x-2 mb-4">
+                        <button class="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium">進行中</button>
+                        <button class="flex-1 bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-300">草稿</button>
+                        <button class="flex-1 bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-300">已結束</button>
+                    </div>
+                    <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+                        <!-- 任務卡 1 -->
+                        <div class="border p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-blue-50 border-blue-200">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-semibold text-gray-800">星巴克自帶杯挑戰</h4>
+                                <i data-feather="coffee" class="w-5 h-5 text-blue-600"></i>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-3">累積 30 次自帶杯購買紀錄。</p>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div class="bg-blue-600 h-2.5 rounded-full" style="width: 73%"></div>
+                            </div>
+                            <span class="text-xs text-gray-500 mt-1 block">完成 73% (2190 / 3000)</span>
+                        </div>
+                        <!-- 任務卡 2 -->
+                        <div class="border p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-semibold text-gray-800">政大綠色通勤</h4>
+                                <i data-feather="train" class="w-5 h-5 text-green-600"></i>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-3">使用大眾運輸工具通勤 20 天。</p>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div class="bg-green-600 h-2.5 rounded-full" style="width: 45%"></div>
+                            </div>
+                            <span class="text-xs text-gray-500 mt-1 block">完成 45% (900 / 2000)</span>
+                        </div>
+                        <!-- 任務卡 3 -->
+                        <div class="border p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-semibold text-gray-800">校園節能行動</h4>
+                                <i data-feather="zap" class="w-5 h-5 text-yellow-600"></i>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-3">掃描節電標章並回報。</p>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div class="bg-yellow-600 h-2.5 rounded-full" style="width: 15%"></div>
+                            </div>
+                            <span class="text-xs text-gray-500 mt-1 block">完成 15% (150 / 1000)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右欄：詳細設定 -->
+                <div class="lg:col-span-2 bg-white rounded-xl shadow-lg p-8">
+                    <h3 class="text-2xl font-semibold text-gray-800 mb-6">編輯任務：星巴克自帶杯挑戰</h3>
+                    <form class="space-y-6">
+                        <div>
+                            <label for="task-name" class="block text-sm font-medium text-gray-700 mb-1">任務名稱</label>
+                            <input type="text" id="task-name" value="星巴克自帶杯挑戰" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="task-type" class="block text-sm font-medium text-gray-700 mb-1">任務類型</label>
+                                <select id="task-type" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <option>交通</option>
+                                    <option selected>飲食</option>
+                                    <option>能源</option>
+                                    <option>回收</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="task-validation" class="block text-sm font-medium text-gray-700 mb-1">驗證方式</label>
+                                <select id="task-validation" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <option>上傳照片</option>
+                                    <option selected>掃描發票</option>
+                                    <option>GPS 定位</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="task-reward" class="block text-sm font-medium text-gray-700 mb-1">積分獎勵與合作品牌</label>
+                            <textarea id="task-reward" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">星巴克 10 點換 1 杯咖啡
+- 每次驗證成功獲得 1 點
+- 合作夥伴：Starbucks Taiwan</textarea>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="task-start-date" class="block text-sm font-medium text-gray-700 mb-1">挑戰開始時間</label>
+                                <input type="date" id="task-start-date" value="2025-11-01" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label for="task-end-date" class="block text-sm font-medium text-gray-700 mb-1">挑戰結束時間</label>
+                                <input type="date" id="task-end-date" value="2025-12-31" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end space-x-4 pt-4 border-t mt-8">
+                            <button type="button" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-5 rounded-lg transition-colors">
+                                預覽任務
+                            </button>
+                            <button type="button" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg shadow-md transition-all">
+                                發布更新
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- =======================
+             3. 玩家分析頁
+             ======================= -->
+        <div id="page-analysis" class="page-content hidden">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">玩家分析</h1>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <!-- 互動地圖 -->
+                <div class="lg:col-span-2 bg-white rounded-xl shadow-lg p-6 min-h-[400px] flex flex-col">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">任務完成熱點地圖</h3>
+                    <!-- 互動地圖 (示意圖) -->
+                    <div class="flex-1 bg-gray-100 rounded-lg flex items-center justify-center p-4 relative overflow-hidden">
+                        <svg class="taiwan-map" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+                            <!-- 台灣本島的簡化路徑 -->
+                            <path class="taiwan-map-path" d="M 50,10 
+                                C 55,15 70,30 70,50
+                                L 72,130
+                                C 72,150 65,165 55,175
+                                L 50,180
+                                C 45,185 40,185 35,180
+                                L 30,175
+                                C 20,165 18,150 18,130
+                                L 20,50
+                                C 20,30 35,15 50,10 Z" />
+                            <!-- 離島 (示意) -->
+                            <path class="taiwan-map-path" d="M 10,120 C 12,118 14,118 16,120 C 18,122 16,124 14,124 C 12,124 10,122 10,120 Z" />
+                            <path class="taiwan-map-path" d="M 80,100 C 82,98 84,98 86,100 C 88,102 86,104 84,104 C 82,104 80,102 80,100 Z" />
+							<path class="taiwan-map-path" d="M 75,110 C 77,108 79,108 81,110 C 83,112 81,114 79,114 C 77,114 75,112 75,110 Z" />
+
+                            <!-- 熱點: 台北 -->
+                            <circle class="hotspot hotspot-taipei" cx="55" cy="40" r="3">
+                                <title>台北地區: 8,320 任務</title>
+                            </circle>
+                            <!-- 熱點: 台中 -->
+                            <circle class="hotspot hotspot-taichung" cx="45" cy="85" r="3">
+                                <title>台中地區: 5,100 任務</title>
+                            </circle>
+                            <!-- 熱點: 高雄 -->
+                            <circle class="hotspot hotspot-kaohsiung" cx="40" cy="140" r="3">
+                                <title>高雄地區: 4,250 任務</title>
+                            </circle>
+                        </svg>
+                        <p class="absolute bottom-4 text-xs text-gray-500">台灣任務熱點示意圖</p>
+                    </div>
+                </div>
+                <!-- 玩家年齡層 -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">玩家年齡層</h3>
+                    <!-- BUG FIX: Add relative container with defined height for responsiveness -->
+                    <div class="relative h-64 md:h-80">
+                        <canvas id="playerAgeChart"></canvas>
+                    </div>
+                    <hr class="my-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">主要參與學校</h4>
+                        <ul class="space-y-1 text-gray-600">
+                            <li>1. 政治大學 (45%)</li>
+                            <li>2. 台灣大學 (20%)</li>
+                            <li>3. 師範大學 (15%)</li>
+                            <li>4. 其他 (20%)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 活躍玩家表格 -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">活躍玩家列表</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">暱稱</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">完成任務數</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">估算碳減量 (kg)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">品牌互動數</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">GreenWarrior22</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">102</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-semibold">12.5</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">32 (星巴克, Gogoro)</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-blue-600 hover:text-blue-900">查看軌跡</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">EcoSavior_NCCU</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">88</td>
+                                <td class="px-6 py-4 whitespace-nowVrap text-sm text-green-600 font-semibold">9.1</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">15 (星巴克)</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-blue-600 hover:text-blue-900">查看軌跡</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">EarthLover</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">75</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-semibold">8.3</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">20 (全家, 捷運)</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="#" class="text-blue-600 hover:text-blue-900">查看軌跡</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- =======================
+             4. 品牌活動頁
+             ======================= -->
+        <div id="page-brand" class="page-content hidden">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">品牌活動</h1>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 左側：活動管理 -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- 品牌 Logo 與預算 -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 flex items-center space-x-6">
+                        <img src="https://placehold.co/100x100/004743/FFFFFF?text=STARBUCKS" alt="Starbucks Logo" class="w-24 h-24 rounded-full border-4 border-gray-100 object-cover">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-800">Starbucks Taiwan</h2>
+                            <p class="text-gray-500 mb-3">合作夥伴 since 2025</p>
+                            <label class="text-sm font-medium text-gray-600">本季贊助預算</label>
+                            <div class="w-full bg-gray-200 rounded-full h-4 mt-1">
+                                <div class="bg-green-600 h-4 rounded-full" style="width: 65%"></div>
+                            </div>
+                            <span class="text-xs text-gray-500 mt-1 block">$65,000 / $100,000</span>
+                        </div>
+                    </div>
+
+                    <!-- 任務卡牆 -->
+                    <h3 class="text-xl font-semibold text-gray-800">進行中的品牌挑戰</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="border p-4 rounded-lg shadow-sm bg-white">
+                            <h4 class="font-semibold text-gray-800">星巴克自帶杯挑戰</h4>
+                            <p class="text-sm text-gray-600 mt-1">已觸及 12,000 人</p>
+                            <span class="text-sm font-medium text-green-600">預估減碳: 800 kg</span>
+                        </div>
+                        <div class="border p-4 rounded-lg shadow-sm bg-white">
+                            <h4 class="font-semibold text-gray-800">Gogoro 綠色騎士</h4>
+                            <p class="text-sm text-gray-600 mt-1">已觸及 8,500 人</p>
+                            <span class="text-sm font-medium text-green-600">預估減碳: 1,200 kg</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右側：新增活動與互動牆 -->
+                <div class="space-y-6">
+                    <!-- 新增品牌任務 -->
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">新增品牌任務</h3>
+                        <form class="space-y-3">
+                            <input type="text" placeholder="挑戰內容..." class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <input type="number" placeholder="預算..." class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button type="button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all">
+                                估算觸及率
+                            </button>
+                            <p class="text-sm text-gray-600 text-center">預估觸及：15,000 人<br>預估減碳：350 kg</p>
+                        </form>
+                    </div>
+
+                    <!-- 玩家互動牆 -->
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">玩家互動牆</h3>
+                        <div class="space-y-3 max-h-48 overflow-y-auto">
+                            <div class="text-sm bg-gray-50 p-3 rounded-lg">
+                                <p class="font-semibold text-gray-700">@EcoSavior</p>
+                                <p class="text-gray-600">今天的自帶杯任務完成！</p>
+                            </div>
+                            <div class="text-sm bg-gray-50 p-3 rounded-lg">
+                                <p class="font-semibold text-gray-700">@GreenWarrior</p>
+                                <p class="text-gray-600">第 10 杯了，感謝星巴克！</p>
+                            </div>
+                        </div>
+                        <textarea rows="2" placeholder="回覆玩家..." class="w-full mt-3 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =======================
+             5. ESG 報表頁
+             ======================= -->
+        <div id="page-report" class="page-content hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-3xl font-bold text-gray-800">ESG 報表</h1>
+                <div class="flex space-x-3">
+                    <button class="bg-white hover:bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-lg shadow-sm border border-gray-300 flex items-center">
+                        <i data-feather="file" class="w-4 h-4 mr-2"></i> 產生 CSRD 附錄
+                    </button>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center">
+                        <i data-feather="download" class="w-4 h-4 mr-2"></i> 匯出 PDF 報表
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex">
+                <!-- 左側目錄 -->
+                <div class="w-1/4 bg-white rounded-l-xl shadow-lg p-6">
+                    <h3 class="font-semibold text-gray-800 mb-4">報表版本</h3>
+                    <nav class="space-y-2">
+                        <a href="#" class="block px-4 py-2 rounded-lg bg-blue-100 text-blue-700 font-medium">2025 年度報告</a>
+                        <a href="#" class="block px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">2025 Q4 報告</a>
+                        <a href="#" class="block px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">2025 Q3 報告</a>
+                        <a href="#" class="block px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100">2025 Q2 報告</a>
+                    </nav>
+                </div>
+                <!-- 主畫面 -->
+                <div class="w-3/4 bg-white rounded-r-xl shadow-lg p-8 border-l border-gray-200">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-6">2025 年度永續績效 (KPI 看板)</h2>
+                    
+                    <div class="space-y-6">
+                        <!-- 指標 1 -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-700">範疇一：能源節省</h4>
+                            <p class="text-3xl font-bold text-green-600 my-2">1,200 kWh</p>
+                            <div class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                <strong class="text-gray-800">資料來源樹：</strong>
+                                <ul class="list-disc list-inside ml-2 mt-1">
+                                    <li>遊戲任務 (校園節能): <span class="font-medium">1,150 kWh</span> (來源：人工審核照片)</li>
+                                    <li>IoT 資料 (辦公室): <span class="font-medium">50 kWh</span> (來源：API 介接)</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <!-- 指標 2 -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-700">範疇二：交通減排</h4>
+                            <p class="text-3xl font-bold text-green-600 my-2">800 kgCO₂e</p>
+                            <div class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                <strong class="text-gray-800">資料來源樹：</strong>
+                                <ul class="list-disc list-inside ml-2 mt-1">
+                                    <li>遊戲任務 (綠色通勤): <span class="font-medium">800 kgCO₂e</span> (來源：GPS 驗證)</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- 指標 3 -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-700">範疇三：廢棄物減少</h4>
+                            <p class="text-3xl font-bold text-green-600 my-2">4,300 件 (一次性用品)</p>
+                            <div class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                <strong class="text-gray-800">資料來源樹：</strong>
+                                <ul class="list-disc list-inside ml-2 mt-1">
+                                    <li>遊戲任務 (自帶杯): <span class="font-medium">3,100 件</span> (來源：發票掃描)</li>
+                                    <li>遊戲任務 (回收挑戰): <span class="font-medium">1,200 件</span> (來源：照片上傳)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =======================
+             6. 系統設定頁
+             ======================= -->
+        <div id="page-settings" class="page-content hidden">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">系統設定</h1>
+            <div class="bg-white rounded-xl shadow-lg">
+                <!-- Tabs -->
+                <div class="border-b border-gray-200">
+                    <nav class="-mb-px flex space-x-8 px-8" aria-label="Tabs">
+                        <button class="tab-button border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" onclick="showTab('settings', 'brand-info', this)">
+                            品牌資料
+                        </button>
+                        <button class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" onclick="showTab('settings', 'permissions', this)">
+                            權限設定
+                        </button>
+                        <button class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" onclick="showTab('settings', 'api', this)">
+                            API 管理
+                        </button>
+                        <button class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" onclick="showTab('settings', 'security', this)">
+                            安全與稽核
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Tab 內容 -->
+                <div class="p-8">
+                    <!-- 品牌資料 -->
+                    <div id="tab-brand-info" class="tab-content">
+                        <form class="space-y-4 max-w-lg">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">公司名稱</label>
+                                <input type="text" value="Starbucks Taiwan" disabled class="mt-1 w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">金流帳戶 (銀行代碼)</label>
+                                <input type="text" value="013 (國泰世華)" disabled class="mt-1 w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">公司 Logo</label>
+                                <div class="mt-1 flex items-center">
+                                    <img src="https://placehold.co/100x100/004743/FFFFFF?text=STARBUCKS" alt="Logo" class="w-16 h-16 rounded-full object-cover">
+                                    <button type="button" class="ml-4 bg-white py-2 px-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                        更換
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <!-- 權限設定 -->
+                    <div id="tab-permissions" class="tab-content hidden">
+                        <p class="text-gray-600">管理團隊成員與角色權限。</p>
+                    </div>
+                    <!-- API 管理 -->
+                    <div id="tab-api" class="tab-content hidden">
+                        <p class="text-gray-600">管理 Webhook、金鑰與流量統計。</p>
+                    </div>
+                    <!-- 安全與稽核 -->
+                    <div id="tab-security" class="tab-content hidden">
+                        <p class="text-gray-600">查看操作紀錄與異常警示。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- =======================
+         AI 助理浮窗
+         ======================= -->
+    <div id="ai-chat-bubble" class="fixed bottom-6 right-6 z-40 cursor-pointer p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all">
+        <i data-feather="message-circle" class="w-8 h-8"></i>
+    </div>
+
+    <div id="ai-chat-window" class="fixed bottom-24 right-6 z-50 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 transform scale-95 opacity-0 hidden">
+        <!-- 標題 -->
+        <div class="flex justify-between items-center p-4 border-b bg-gray-50 rounded-t-xl">
+            <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                <i data-feather="cpu" class="w-5 h-5 mr-2 text-blue-600"></i>
+                Gaia AI 助理
+            </h3>
+            <button id="ai-chat-close" class="text-gray-400 hover:text-gray-600">
+                <i data-feather="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <!-- 聊天內容 -->
+        <div class="p-4 h-80 overflow-y-auto space-y-4">
+            <!-- AI 訊息 -->
+            <div class="flex">
+                <div class="p-3 bg-gray-100 rounded-lg rounded-bl-none max-w-xs">
+                    <p class="text-sm text-gray-800">您好！需要什麼協助嗎？</p>
+                </div>
+            </div>
+            <!-- User 訊息 -->
+            <div class="flex justify-end">
+                <div class="p-3 bg-blue-600 text-white rounded-lg rounded-br-none max-w-xs">
+                    <p class="text-sm">幫我生成一個與企業 ESG 目標相符的新挑戰</p>
+                </div>
+            </div>
+            <!-- AI 訊息 -->
+            <div class="flex">
+                <div class="p-3 bg-gray-100 rounded-lg rounded-bl-none max-w-xs">
+                    <p class="text-sm text-gray-800">好的，根據您「交通減排」的目標，建議任務：<br><strong class="font-medium">「綠色通勤月挑戰」</strong><br>預估減碳 32 公斤，推薦獎勵：星巴克折扣碼。</p>
+                </div>
+            </div>
+        </div>
+        <!-- 輸入框 -->
+        <div class="p-4 border-t bg-gray-50 rounded-b-xl">
+            <div class="relative">
+                <input type="text" placeholder="輸入您的指令..." class="w-full pl-4 pr-12 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button class="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-blue-600 hover:text-blue-800">
+                    <i data-feather="send" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Chart instances ---
+        let dailyTasksChartInstance = null;
+        let taskTypeChartInstance = null;
+        let playerAgeChartInstance = null;
+
+        // --- 頁面導航邏輯 ---
+        function showPage(pageId, element) {
+            // 隱藏所有頁面
+            document.querySelectorAll('.page-content').forEach(page => {
+                page.classList.add('hidden');
+            });
+            // 顯示目標頁面
+            const targetPage = document.getElementById('page-' + pageId);
+            if (targetPage) {
+                targetPage.classList.remove('hidden');
+            }
+
+            // 更新側邊欄活動狀態
+            document.querySelectorAll('.sidebar-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            if (element) {
+                element.classList.add('active');
+            }
+            
+            // 如果是手機版，點擊後關閉側邊欄
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            if (window.innerWidth < 1024) {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+
+            // --- BUG FIX: On-demand chart initialization ---
+            // Only initialize charts when their page is visible
+            if (pageId === 'dashboard') {
+                initDashboardCharts();
+            } else if (pageId === 'analysis') {
+                initAnalysisCharts();
+            }
+        }
+
+        // --- 頁籤 (Tab) 邏輯 ---
+        function showTab(pagePrefix, tabId, element) {
+            // 隱藏所有頁籤內容
+            document.querySelectorAll(`#page-${pagePrefix} .tab-content`).forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            // 顯示目標頁籤內容
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+
+            // 更新頁籤按鈕狀態
+            document.querySelectorAll(`#page-${pagePrefix} .tab-button`).forEach(button => {
+                button.classList.remove('border-blue-500', 'text-blue-600');
+                button.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            });
+            element.classList.add('border-blue-500', 'text-blue-600');
+            element.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+        }
+
+        // --- AI 助理聊天室 ---
+        const chatBubble = document.getElementById('ai-chat-bubble');
+        const chatWindow = document.getElementById('ai-chat-window');
+        const chatClose = document.getElementById('ai-chat-close');
+
+        chatBubble.addEventListener('click', () => {
+            chatWindow.classList.remove('hidden', 'scale-95', 'opacity-0');
+            chatWindow.classList.add('scale-100', 'opacity-100');
+            chatBubble.classList.add('hidden');
+        });
+
+        chatClose.addEventListener('click', () => {
+            chatWindow.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                chatWindow.classList.add('hidden');
+                chatBubble.classList.remove('hidden');
+            }, 300);
+        });
+
+        // --- 手機版側邊欄 ---
+        const menuToggle = document.getElementById('menu-toggle');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+
+        menuToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        });
+        
+        overlay.addEventListener('click', () => {
+            sidebar.classList.add('-translate-x-full');
+            overlay.classList.add('hidden');
+        });
+
+
+        // --- 初始化圖表 (Dashboard) ---
+        function initDashboardCharts() {
+            // 檢查 Canvas 是否存在
+            const dailyCtxElement = document.getElementById('dailyTasksChart');
+            if (dailyCtxElement && !dailyTasksChartInstance) {
+                const dailyCtx = dailyCtxElement.getContext('2d');
+                dailyTasksChartInstance = new Chart(dailyCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['11/01', '11/02', '11/03', '11/04', '11/05', '11/06', '11/07'],
+                        datasets: [{
+                            label: '任務完成數',
+                            data: [120, 150, 130, 180, 160, 210, 200],
+                            borderColor: '#3b82f6', // 藍色
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+            }
+            
+            const taskTypeCtxElement = document.getElementById('taskTypeChart');
+            if (taskTypeCtxElement && !taskTypeChartInstance) {
+                const taskTypeCtx = taskTypeCtxElement.getContext('2d');
+                taskTypeChartInstance = new Chart(taskTypeCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['節能', '交通', '回收', '飲食'],
+                        datasets: [{
+                            data: [25, 30, 15, 30],
+                            backgroundColor: ['#f59e0b', '#10b981', '#6366f1', '#3b82f6'],
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+            }
+        }
+
+        // --- 初始化圖表 (Analysis) ---
+        function initAnalysisCharts() {
+            const playerAgeCtxElement = document.getElementById('playerAgeChart');
+            if (playerAgeCtxElement && !playerAgeChartInstance) {
+                const playerAgeCtx = playerAgeCtxElement.getContext('2d');
+                playerAgeChartInstance = new Chart(playerAgeCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['< 18', '18-24', '25-30', '30+'],
+                        datasets: [{
+                            label: '玩家人數',
+                            data: [1500, 8500, 3200, 1100],
+                            backgroundColor: '#10b981',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+            }
+        }
+
+        // --- DOM 載入完成後執行 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            feather.replace(); // 啟動 Feather Icons
+            // 設置預設頁面
+            // 這將自動觸發 showPage('dashboard', ...), 進而調用 initDashboardCharts()
+            showPage('dashboard', document.querySelector('.sidebar-link.active'));
+        });
+    </script>
+</body>
+</html>
+
