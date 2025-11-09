@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GAIA Sustainability Proof Uploader</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Using Inter font as default, utilizing styles to simulate pixelated look -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Simulate retro game dark background */
+            background-color: #3b3a37; 
+            min-height: 100vh;
+        }
+
+        /* Game card base style: brown background, thick border */
+        .game-card {
+            background-color: #e8d0a6; /* Light beige background */
+            /* Simulate pixelated border: deep brown thick shadow */
+            box-shadow: 
+                4px 4px 0 0 #5c4033, /* Bottom-right shadow */
+                -4px -4px 0 0 #5c4033; /* Top-left shadow */
+            border: 4px solid #5c4033; /* Main border */
+        }
+        
+        /* Mission block style */
+        .mission-item {
+            background-color: #5c4033; /* Deep brown background */
+            color: #e8d0a6; /* Light text */
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            /* Simulate thick block separator edge */
+            border-bottom: 3px solid #3b3a37;
+            text-shadow: 1px 1px 0 #3b3a37; /* Make text look more like pixel font */
+        }
+
+        /* Button style */
+        .game-button {
+            background-color: #8b5e3c; /* Medium brown */
+            color: #fff;
+            padding: 10px 20px;
+            font-weight: 700;
+            border: 3px solid #5c4033;
+            /* Simulate button lift and press effect */
+            box-shadow: 0 4px 0 0 #5c4033;
+            transition: all 0.1s;
+        }
+
+        .game-button:active {
+            box-shadow: 0 0 0 0 #5c4033;
+            transform: translateY(4px);
+        }
+
+        /* Visually hide file input, making the label look like a button */
+        .file-input-label {
+            cursor: pointer;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center p-4 sm:p-8">
+
+    <!-- Main Card Container -->
+    <div id="main-card" class="game-card w-full max-w-xl mx-auto rounded-lg p-6 shadow-2xl">
+        <!-- Title Block -->
+        <div class="mission-item text-3xl font-black text-center mb-6 py-4">
+            GAIA CRAFT MISSION PROOF
+        </div>
+
+        <!-- Mission Upload Block -->
+        <div class="bg-gray-200 p-4 rounded-md mb-6 border-4 border-gray-400">
+            <h2 class="text-xl font-bold mb-3 text-gray-800">1. Sustainable Action Details</h2>
+            
+            <div class="mb-4">
+                <label for="mission-name" class="block text-sm font-medium text-gray-700 mb-1">Mission Name/Description:</label>
+                <input type="text" id="mission-name" placeholder="e.g., Used a reusable bag 10 times"
+                       class="w-full p-2 border-4 border-[#5c4033] focus:ring-0 focus:border-[#8b5e3c] bg-[#fff] text-[#3b3a37] font-bold">
+            </div>
+
+            <div class="mb-4">
+                <label for="proof-file" class="block text-sm font-medium text-gray-700 mb-2">Upload Proof Image:</label>
+                
+                <input type="file" id="proof-file" accept="image/*" class="hidden" onchange="previewImage(event)">
+                
+                <label for="proof-file" class="game-button file-input-label w-full block">
+                    Select Image File (e.g., Recycling photo, Vegetarian meal)
+                </label>
+            </div>
+
+            <!-- Image Preview Area -->
+            <div id="image-preview-container" class="mt-4 hidden border-4 border-dashed border-gray-500 p-2 text-center text-gray-600 bg-gray-100">
+                <p class="mb-2">Image Preview:</p>
+                <img id="image-preview" class="w-full h-auto max-h-64 object-contain mx-auto" alt="Image Preview">
+            </div>
+
+            <button onclick="submitProof()" class="game-button w-full mt-6 text-lg">
+                Submit Mission Proof <span id="submit-status"></span>
+            </button>
+        </div>
+
+        <!-- Completed Missions List Block -->
+        <h2 class="mission-item text-xl font-black mt-8 py-3 text-center">Completed Sustainable Missions (Local Simulation)</h2>
+        <div id="mission-list" class="flex flex-col gap-3 p-2 bg-gray-100 border-2 border-gray-500">
+            <!-- Missions will be inserted here -->
+            <p class="text-center text-gray-500">No missions submitted yet.</p>
+        </div>
+    </div>
+
+    <!-- Message Box (Replaces alert) -->
+    <div id="message-box" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
+        <div class="game-card max-w-sm w-full p-6 text-center">
+            <p id="message-text" class="text-xl font-bold text-[#3b3a37] mb-4"></p>
+            <button onclick="hideMessage()" class="game-button mx-auto text-base">OK</button>
+        </div>
+    </div>
+
+    <script>
+        // Simulated local storage key
+        const STORAGE_KEY = 'gaiaCraftMissions';
+        
+        // --- Utility Function: Message Box (Replaces alert) ---
+        function showMessage(text) {
+            document.getElementById('message-text').textContent = text;
+            document.getElementById('message-box').classList.remove('hidden');
+            document.getElementById('message-box').classList.add('flex');
+        }
+
+        function hideMessage() {
+            document.getElementById('message-box').classList.add('hidden');
+            document.getElementById('message-box').classList.remove('flex');
+        }
+
+        // --- Image Preview Functionality ---
+        function previewImage(event) {
+            const file = event.target.files[0];
+            const previewContainer = document.getElementById('image-preview-container');
+            const preview = document.getElementById('image-preview');
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    previewContainer.classList.remove('hidden');
+                }
+                reader.readAsDataURL(file);
+            } else {
+                preview.src = '';
+                previewContainer.classList.add('hidden');
+            }
+        }
+
+        // --- Render Submitted Missions List ---
+        function renderMissionList() {
+            const listContainer = document.getElementById('mission-list');
+            // In a real application, you would fetch data from Firestore
+            const missions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            
+            listContainer.innerHTML = ''; // Clear existing list
+
+            if (missions.length === 0) {
+                listContainer.innerHTML = '<p class="text-center text-gray-500 p-4">No missions submitted yet.</p>';
+                return;
+            }
+
+            missions.forEach((mission, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'flex flex-col sm:flex-row items-start sm:items-center bg-[#f8f8e8] p-3 rounded-md shadow-inner gap-4 border border-gray-300';
+                
+                // Mission Rank (Simulating Level/EXP)
+                const rankSpan = document.createElement('span');
+                rankSpan.className = 'text-xl font-extrabold text-[#5c4033] border-r-4 border-[#e8d0a6] pr-4 mr-2';
+                rankSpan.textContent = `Lv.${missions.length - index}`; // Newer missions have lower index
+
+                // Mission Description
+                const textDiv = document.createElement('div');
+                textDiv.className = 'flex-1 min-w-0';
+                textDiv.innerHTML = `
+                    <p class="font-bold text-gray-800 truncate">${mission.name}</p>
+                    <p class="text-xs text-gray-500">Submitted on: ${new Date(mission.timestamp).toLocaleDateString('en-US')}</p>
+                `;
+
+                // Proof Image (Base64 dataURL)
+                const img = document.createElement('img');
+                img.className = 'w-16 h-16 object-cover rounded-sm border-2 border-gray-400 cursor-pointer transition transform hover:scale-105';
+                img.src = mission.proof;
+                img.alt = 'Proof Image';
+                img.onclick = () => showImageInNewWindow(mission.proof);
+
+                itemDiv.appendChild(rankSpan);
+                itemDiv.appendChild(textDiv);
+                itemDiv.appendChild(img);
+                listContainer.appendChild(itemDiv);
+            });
+        }
+        
+        // Enlarges the image
+        function showImageInNewWindow(dataUrl) {
+            const newWindow = window.open();
+            newWindow.document.write(`
+                <html>
+                <head><title>Mission Proof</title><style>body { margin: 0; background: #3b3a37; display: flex; justify-content: center; align-items: center; min-height: 100vh; }</style></head>
+                <body><img src="${dataUrl}" style="max-width: 90vw; max-height: 90vh; border: 8px solid #e8d0a6; box-shadow: 0 0 20px rgba(0,0,0,0.8);"></body>
+                </html>
+            `);
+        }
+
+        // --- Submission Logic ---
+        function submitProof() {
+            const nameInput = document.getElementById('mission-name');
+            const fileInput = document.getElementById('proof-file');
+            const statusSpan = document.getElementById('submit-status');
+
+            const missionName = nameInput.value.trim();
+            const file = fileInput.files[0];
+
+            if (!missionName) {
+                showMessage("Mission name cannot be empty. Please describe your sustainable action!");
+                return;
+            }
+
+            if (!file) {
+                showMessage("Please select an image as proof of your action!");
+                return;
+            }
+
+            if (file.size > 2 * 1024 * 1024) { // Limit image size to 2MB
+                showMessage("Image file is too large (2MB limit). Please choose a smaller one.");
+                return;
+            }
+
+            statusSpan.textContent = ' (Uploading...)';
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const proofDataURL = e.target.result;
+                
+                // 1. Read existing missions from LocalStorage (Simulating Firestore read)
+                const missions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+                
+                // 2. Create new mission object
+                const newMission = {
+                    id: Date.now(),
+                    name: missionName,
+                    proof: proofDataURL, // In a real app, this would be a cloud storage URL
+                    timestamp: new Date().toISOString()
+                };
+
+                // 3. Add to list and save (Simulating Firestore write)
+                missions.unshift(newMission); // Newest mission goes first
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(missions));
+
+                // 4. Update UI
+                nameInput.value = '';
+                fileInput.value = '';
+                document.getElementById('image-preview').src = '';
+                document.getElementById('image-preview-container').classList.add('hidden');
+                statusSpan.textContent = '';
+                
+                showMessage(`The proof for "${missionName}" has been submitted! You gained EXP!`);
+                renderMissionList(); 
+            };
+            
+            // Read file as Data URL (Base64) for front-end simulation display
+            reader.readAsDataURL(file);
+        }
+
+        // Render list on page load
+        window.onload = function() {
+            renderMissionList();
+        }
+
+    </script>
+</body>
+</html>
